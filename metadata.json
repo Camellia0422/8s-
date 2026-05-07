@@ -1,0 +1,6 @@
+{
+  "name": "Novel to 8s Script Studio",
+  "description": "An AI-powered tool to transform Chinese novels into structured 8-second short video scripts with visual descriptions, voiceovers, and camera suggestions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

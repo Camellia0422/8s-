@@ -32,7 +32,7 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -60,14 +60,20 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
     });
 
     const segmentsRaw = JSON.parse(response.text || "[]") as any[];
+    if (!Array.isArray(segmentsRaw)) {
+      throw new Error("AI returned invalid data format: expected an array.");
+    }
+    
     return segmentsRaw.map((s, index) => ({
       ...s,
       id: index + 1,
       locked: false,
       edited: false
     }));
-  } catch (error) {
-    console.error("Gemini AI error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Gemini AI error detailed:", error);
+    // If it's an API error, it might have more details
+    const message = error?.message || "Unknown AI error";
+    throw new Error(`AI生成失败: ${message}`);
   }
 }

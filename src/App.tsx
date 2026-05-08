@@ -68,11 +68,15 @@ export default function App() {
     
     setIsGenerating(true);
     try {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("检测到 API Key 缺失。请在 Secrets 面板中配置 GEMINI_API_KEY。");
+      }
       const result = await generateScript(sourceText, style);
       setSegments(result);
       if (result.length > 0) setSelectedId(result[0].id);
-    } catch (error) {
-      alert("生成失败，请检查 API 配置或网络。");
+    } catch (error: any) {
+      console.error("生成出错:", error);
+      alert(error.message || "生成失败，请检查网络或稍后重试。");
     } finally {
       setIsGenerating(false);
     }
@@ -338,25 +342,59 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar relative">
+            {isGenerating && (
+              <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center space-y-4">
+                <div className="relative">
+                  <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+                  <Zap className="w-5 h-5 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">正在进行语义切分...</p>
+                  <p className="text-xs text-slate-500">正在按 8s 时长和叙事节奏重构分镜</p>
+                </div>
+              </div>
+            )}
             {segments.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-6 px-10 text-center">
-                <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-full animate-bounce">
-                  <Zap className="w-12 h-12 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">准备好你的小说了吗？</h3>
-                  <p className="text-sm max-w-xs mx-auto">
-                    在左侧输入文字并选择风格，然后点击 <span className="text-indigo-600 font-bold">“生成脚本”</span> 开始创作。
-                  </p>
-                </div>
-                {sourceText && (
-                  <button 
-                    onClick={handleGenerate}
-                    className="px-8 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-xl hover:scale-105 active:scale-95 transition-all"
+                {sourceText ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="space-y-6 flex flex-col items-center"
                   >
-                    立即生成全部分镜
-                  </button>
+                    <div className="p-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-full shadow-inner relative">
+                      <Zap className="w-16 h-16 text-indigo-600 animate-pulse" />
+                      <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-3">文本已就绪！</h3>
+                      <p className="text-sm text-slate-500 max-w-sm mb-6">
+                        点击下方按钮，AI 将根据你选择的 <span className="text-indigo-600 font-bold">{style === 'narrative' ? '叙事' : style === 'exciting' ? '爽感' : '悬疑'}</span> 风格，将小说拆解为最适合短视频节奏的分镜。
+                      </p>
+                      <button 
+                        onClick={handleGenerate}
+                        className="group relative px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-lg shadow-[0_10px_40px_-10px_rgba(79,70,229,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                        <Zap className="w-6 h-6 fill-current" />
+                        立即生成分镜脚本
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <>
+                    <div className="p-6 bg-slate-100 dark:bg-slate-800 rounded-full">
+                      <FileText className="w-12 h-12 text-slate-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">欢迎来到短视频分镜工坊</h3>
+                      <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                        请在左侧输入你的小说原文，我们将为你自动生成 8 秒一段的镜头脚本。
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
@@ -599,8 +637,16 @@ export default function App() {
           
           {selectedSegment && (
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex gap-3">
-              <button className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95">
-                <Copy className="w-4 h-4" /> 复制本段脚本
+              <button 
+                onClick={() => handleCopySingle(selectedSegment)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
+                  copiedId === selectedSegment.id 
+                  ? "bg-green-600 text-white shadow-green-200" 
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-none"
+                }`}
+              >
+                {copiedId === selectedSegment.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedId === selectedSegment.id ? "已复制到剪贴板" : "复制本段脚本"}
               </button>
             </div>
           )}

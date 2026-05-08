@@ -219,7 +219,6 @@ export default function App() {
           />
           <button 
             onClick={() => {
-              if (segments.length > 0 && !confirm("确定要开启新项目吗？当前未导出的脚本将丢失。")) return;
               setSourceText("");
               setSegments([]);
               setSelectedId(null);
@@ -298,8 +297,14 @@ export default function App() {
                 内置示例
               </button>
               <button 
-                onClick={() => setSourceText("")}
+                onClick={() => {
+                  setSourceText("");
+                  setSegments([]);
+                  setSelectedId(null);
+                  setProjectTitle("未命名项目");
+                }}
                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                title="清空文字并重置项目"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

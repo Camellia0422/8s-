@@ -22,6 +22,8 @@ export interface ScriptSegment {
   camera: string;
   audio: string;
   transition: string;
+  videoPrompt: string;      // AI 生成视频的提示词/关键词
+  shortVideoScript: string;  // 适合直接生成的短视频文案集
   locked?: boolean;
   edited?: boolean;
 }

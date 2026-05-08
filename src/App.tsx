@@ -144,6 +144,8 @@ export default function App() {
       sourceExcerpt: current.sourceExcerpt + "\n" + next.sourceExcerpt,
       voiceover: current.voiceover + " " + next.voiceover,
       estimatedDuration: current.estimatedDuration + next.estimatedDuration,
+      videoPrompt: current.videoPrompt + ", " + next.videoPrompt,
+      shortVideoScript: current.shortVideoScript + "\n" + next.shortVideoScript,
       edited: true
     };
 
@@ -172,16 +174,17 @@ export default function App() {
       content = JSON.stringify(project, null, 2);
       fileName += ".json";
     } else if (type === "csv") {
-      const headers = ["ID", "原文", "时长", "场景", "角色", "情绪", "画面", "旁白", "字幕", "镜头", "音效", "转场"];
+      const headers = ["ID", "原文", "时长", "场景", "角色", "情绪", "画面", "旁白", "字幕", "镜头", "音效", "转场", "AI视频提示词", "文字成片文案"];
       const rows = segments.map(s => [
         s.id, s.sourceExcerpt, s.estimatedDuration, s.scene, s.characters.join(","),
-        s.emotion, s.visual, s.voiceover, s.subtitle, s.camera, s.audio, s.transition
+        s.emotion, s.visual, s.voiceover, s.subtitle, s.camera, s.audio, s.transition,
+        s.videoPrompt, s.shortVideoScript
       ]);
       content = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
       fileName += ".csv";
     } else if (type === "md") {
       content = `# ${project.projectTitle}\n\n## 风格: ${style}\n\n` + 
-        segments.map(s => `### 片段 ${s.id} (${s.estimatedDuration}s)\n- **场景**: ${s.scene}\n- **画面**: ${s.visual}\n- **旁白**: ${s.voiceover}\n- **镜头**: ${s.camera}\n`).join("\n---\n\n");
+        segments.map(s => `### 片段 ${s.id} (${s.estimatedDuration}s)\n- **场景**: ${s.scene}\n- **画面**: ${s.visual}\n- **旁白**: ${s.voiceover}\n- **镜头**: ${s.camera}\n- **AI视频提示词**: ${s.videoPrompt}\n- **文字成片文案**: ${s.shortVideoScript}\n`).join("\n---\n\n");
       fileName += ".md";
     }
 
@@ -214,6 +217,19 @@ export default function App() {
             onChange={(e) => setProjectTitle(e.target.value)}
             className="font-bold text-lg tracking-tight bg-transparent border-none focus:ring-0 w-48"
           />
+          <button 
+            onClick={() => {
+              if (segments.length > 0 && !confirm("确定要开启新项目吗？当前未导出的脚本将丢失。")) return;
+              setSourceText("");
+              setSegments([]);
+              setSelectedId(null);
+              setProjectTitle("未命名项目");
+            }}
+            className="ml-2 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors flex items-center gap-1 text-xs font-bold uppercase tracking-wider"
+            title="新建项目"
+          >
+            <Plus className="w-4 h-4" /> 新建
+          </button>
         </div>
         
         <div className="flex items-center gap-2">
@@ -532,6 +548,31 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-5 pb-10"
               >
+                {/* Source Excerpt - Editable for replacement and regeneration */}
+                <div className="space-y-2 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> 原文摘录 (修改后可重新生成)
+                    </label>
+                  </div>
+                  <textarea 
+                    value={selectedSegment.sourceExcerpt}
+                    onChange={(e) => handleUpdateSegment(selectedSegment.id, { sourceExcerpt: e.target.value })}
+                    placeholder="在此替换原文内容..."
+                    className="w-full h-24 p-3 text-sm bg-white dark:bg-slate-900 border-2 border-transparent focus:border-amber-500 rounded-xl resize-none transition-all font-serif"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button 
+                      onClick={() => handleRegenerateSegment(selectedSegment.id)}
+                      disabled={isGenerating}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-full flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                    >
+                      <RotateCcw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                      基于新原文重新生成
+                    </button>
+                  </div>
+                </div>
+
                 {/* Visual Description */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">画面描述</label>
@@ -604,6 +645,53 @@ export default function App() {
                       value={selectedSegment.transition}
                       onChange={(e) => handleUpdateSegment(selectedSegment.id, { transition: e.target.value })}
                       className="text-xs bg-transparent border-none p-0 focus:ring-0 w-full font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* New Fields: Video Prompt & Short Video Script */}
+                <div className="space-y-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 dark:border-indigo-900/20 rounded-2xl">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">AI 视频提示词 (关键词生成)</label>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedSegment.videoPrompt);
+                          setCopiedId(selectedSegment.id);
+                          setTimeout(() => setCopiedId(null), 2000);
+                        }}
+                        className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded transition-colors"
+                      >
+                        {copiedId === selectedSegment.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-indigo-400" />}
+                      </button>
+                    </div>
+                    <textarea 
+                      value={selectedSegment.videoPrompt}
+                      onChange={(e) => handleUpdateSegment(selectedSegment.id, { videoPrompt: e.target.value })}
+                      placeholder="用于 Sora/Kling 的画面关键词..."
+                      className="w-full h-20 p-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 rounded-xl resize-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">文字成片文案 (一键式文段)</label>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedSegment.shortVideoScript);
+                          setCopiedId(selectedId); // Use selectedId or selectedSegment.id
+                          setTimeout(() => setCopiedId(null), 2000);
+                        }}
+                        className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded transition-colors"
+                      >
+                        {copiedId === selectedId ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-indigo-400" />}
+                      </button>
+                    </div>
+                    <textarea 
+                      value={selectedSegment.shortVideoScript}
+                      onChange={(e) => handleUpdateSegment(selectedSegment.id, { shortVideoScript: e.target.value })}
+                      placeholder="适合直接导入生成视频的文段..."
+                      className="w-full h-24 p-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 rounded-xl resize-none transition-all"
                     />
                   </div>
                 </div>

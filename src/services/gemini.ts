@@ -11,8 +11,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function generateScript(text: string, style: ScriptStyle): Promise<ScriptSegment[]> {
   const stylePrompt = STYLE_PROMPTS[style];
-  
-  const prompt = `
+    const prompt = `
     你是一个专业的短视频分镜脚本专家。请将以下中文小说片段转化为一系列 8 秒左右的短视频脚本。
     
     小说内容：
@@ -27,7 +26,9 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
     2. 不要机械按字数切。优先保证语义完整，尤其是核心对话不要被切断。
     3. 第一段需有“勾子”，快速建立吸引力。
     4. 对每一段生成详细的画面描述、旁白、字幕、镜头建议、音频建议。
-    5. 预估时长：中文旁白约 4-6 字/秒。
+    5. **新增字段 1：AI 视频提示词 (videoPrompt)**。这是专门给 Sora/Kling/Luma 等 AI 视频生成工具使用的英文或中文关键词组，描述画面风格、构图、光影。
+    6. **新增字段 2：一键生成文案 (shortVideoScript)**。将旁白、画面核心、情绪关键词浓缩成一段可以直接丢进“文字成片”工具的综合描述。
+    7. 预估时长：中文旁白约 4-6 字/秒。
   `;
 
   try {
@@ -51,9 +52,11 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
               subtitle: { type: Type.STRING, description: "屏幕字幕" },
               camera: { type: Type.STRING, description: "镜头建议" },
               audio: { type: Type.STRING, description: "音效/BGM建议" },
-              transition: { type: Type.STRING, description: "转场建议" }
+              transition: { type: Type.STRING, description: "转场建议" },
+              videoPrompt: { type: Type.STRING, description: "针对 AI 视频生成器的提示词建议" },
+              shortVideoScript: { type: Type.STRING, description: "适合文字成片工具的综合文段" }
             },
-            required: ["sourceExcerpt", "estimatedDuration", "scene", "characters", "emotion", "visual", "voiceover", "subtitle", "camera", "audio", "transition"]
+            required: ["sourceExcerpt", "estimatedDuration", "scene", "characters", "emotion", "visual", "voiceover", "subtitle", "camera", "audio", "transition", "videoPrompt", "shortVideoScript"]
           }
         }
       }

@@ -6,19 +6,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ScriptStyle, ScriptSegment } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export async function generateScript(text: string, style: ScriptStyle): Promise<ScriptSegment[]> {
+  const apiKey = process.env.GEMINI_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please check your environment variables.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   const STYLE_PROMPTS = {
-    "cinematic": "电影感，注重史诗感、大场景和视觉张力。",
-    "animation": "二次元动漫风格，色彩鲜明，动作夸张且富有张力。",
-    "vlog": "生活化 Vlog 风格，自然写实，注重亲和力与节奏感。",
-    "suspense": "悬疑风格，阴影深重，运镜诡秘，营造紧张感。"
+    "cinematic": "电影级工业化质感，注重光影对比（Chiaroscuro）、大光圈虚化（Bokeh）以及 2.39:1 宽画幅构图。强化主体细节，如皮肤纹理和动态模糊。",
+    "animation": "高饱和度二次元或 3D 渲染风格。参考 Arcane 或 Pixar 质感，动作流畅且具有物理碰撞感，环境氛围具有插画感。",
+    "vlog": "第一人称视角或自然跟拍，极具真实感。色彩柔和，自然采光。包含大量生活化动态细节，如风吹落叶、光斑闪烁。",
+    "suspense": "希区柯克式心理悬疑。阴影强烈，低角度曝光。运镜包含大量慢推（Slow Push）和特写，营造压抑与不安的戏剧张力。"
   };
   
   const stylePrompt = STYLE_PROMPTS[style as keyof typeof STYLE_PROMPTS];
   const prompt = `
-    你是一个专业的短视频分镜脚本专家。请将以下中文小说片段转化为一系列 8 秒左右的短视频脚本。
+    你是一个顶级的 AI 视频导演和高级提示词工程师（Prompt Engineer）。请将以下中文小说片段转化为一系列 8 秒左右的短视频分镜脚本。
     
     小说内容：
     """
@@ -27,26 +32,26 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
     
     风格要求：${stylePrompt}
     
-    请遵循以下要求：
-    1. 按语义和节奏对文本进行切分，每段预估时长在 6-10 秒之间（目标 8 秒）。
-    2. 不要机械按字数切。优先保证语义完整，尤其是核心对话不要被切断。严禁大幅度删减原文，需确保分镜脚本基本覆盖原文的所有关键细节和对话。
-    3. 第一段需有“勾子”，快速建立吸引力。
-    4. 对每一段生成详细的画面描述、旁白、字幕、镜头建议、音频建议。
-    5. **AI 视频提示词 (videoPrompt)**。遵循以下【实用提示词模板】强制输出：
-       - 场景：哪里，时间，氛围。
-       - 主体：谁，外观特征（需清晰可见）。
-       - 动作：在做什么（必须是具体的）。
-       - 镜头：推拉镜头/运镜。
-       - 风格：4K/电影感/画质参数。
-    6. **一键生成文案 (shortVideoScript)**。将旁白、画面核心、情绪关键词浓缩。
-    7. **覆盖度要求**：确保分镜脚本拼凑出完整的原始文本。
-    8. 预估时长：中文旁白约 4-6 字/秒。
+    请遵循以下【导演级 AI 视频调教协议】生成内容（适配 Kling/Runway/Pika/PixVerse/ComfyUI/Veo）：
+    
+    1. **电影级词库集成**：在 videoPrompt 中使用高级视觉术语（如：Anamorphic lens, volumetric lighting, Global Illumination, Ray Tracing, 8k resolution, Photorealistic texture）。
+    2. **美式/工业化风格强化**：通过负面词规避实现高保真画质（规避：blurry, deformed, static, low quality）。
+    3. **运镜精准调教**：明确规定运镜轨迹（如：Crane shot, Dolly zoom, Steadicam tracking, slow-motion at 120fps）。
+    4. **人物与环境动态**：描述极细微的动态（如：subsurface scattering on skin, particulate matter dancing in light beams, hyper-detailed facial expressions）。
+    5. **字段说明**：
+       - **videoPrompt**：高级调优文档。格式为：[主体描述] + [动作细节] + [背景环境] + [运镜与光影参数]。
+       - **shortVideoScript**：将旁白与核心视觉参数融合的万能文案模板。
+    
+    生成逻辑：
+    - 每段时长目标 8s。
+    - 确保完整覆盖原文所有对话和关键情节。
   `;
 
   try {
+    console.log("Requesting gemini-3-flash-preview...");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -65,8 +70,8 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
               camera: { type: Type.STRING },
               audio: { type: Type.STRING },
               transition: { type: Type.STRING },
-              videoPrompt: { type: Type.STRING },
-              shortVideoScript: { type: Type.STRING }
+              videoPrompt: { type: Type.STRING, description: "包含电影级调优参数的高级提示词" },
+              shortVideoScript: { type: Type.STRING, description: "整合了万能模板的文案" }
             },
             required: ["sourceExcerpt", "estimatedDuration", "scene", "characters", "emotion", "visual", "voiceover", "subtitle", "camera", "audio", "transition", "videoPrompt", "shortVideoScript"]
           }
@@ -74,10 +79,8 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
       }
     });
 
-    const segmentsRaw = JSON.parse(response.text || "[]") as any[];
-    if (!Array.isArray(segmentsRaw)) {
-      throw new Error("AI returned invalid data format: expected an array.");
-    }
+    const resultText = response.text;
+    const segmentsRaw = JSON.parse(resultText || "[]") as any[];
     
     return segmentsRaw.map((s, index) => ({
       ...s,
@@ -86,9 +89,8 @@ export async function generateScript(text: string, style: ScriptStyle): Promise<
       edited: false
     }));
   } catch (error: any) {
-    console.error("Gemini AI error detailed:", error);
-    const message = error?.message || "Unknown AI error";
-    throw new Error(`AI生成失败: ${message}`);
+    console.error("Gemini AI error:", error);
+    throw new Error(`AI生成失败: ${error.message || "未知错误"}`);
   }
 }
 

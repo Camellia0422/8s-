@@ -14,9 +14,9 @@ export const EXAMPLE_TEXT = `九月的夏末还没褪去燥热。
 陈屿愣住了，那一刻，他仿佛听到了锁链断裂的声音。`;
 
 export const STYLE_PROMPTS: Record<ScriptStyle, string> = {
-  [ScriptStyle.NARRATIVE]: "偏沉浸、自然、文学感。画面描述要细腻，带有叙事张力。",
-  [ScriptStyle.EXCITING]: "节奏快、钩子强、强调冲突和反差。画面要冲击力强，文案干脆利落。",
-  [ScriptStyle.SUSPENSE]: "强化压迫感、未知感、异变预兆。画面色调偏暗，暗示不寻常的细节。"
+  [ScriptStyle.NARRATIVE]: "电影级工业化质感，注重光影对比（Chiaroscuro）与大场景叙事张力。适配 Kling/Runway 电影模式。",
+  [ScriptStyle.EXCITING]: "高强度视觉冲击与美式风格强化。注重动作自然化与快节奏剪辑感。适配 Pika/PixVerse 动态驱动。",
+  [ScriptStyle.SUSPENSE]: "希区柯克式心理悬疑。强化环境动态、冷色调与未知感预兆。适配 SVD/ComfyUI 深度定制。"
 };
 
 export const CHINESE_PUNCTUATION = /[。！？…“”]/;
